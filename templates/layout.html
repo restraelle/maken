@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+</head>
+<style>
+    html {
+        background-color: #282828;
+    }
+    p, h1, h2, h3, h4, h5, h6, h7 {
+        font-family: 'Arial', sans-serif;
+        color: white;
+    }
+    #messageinput {
+        width: calc(100% - 20px);
+    }
+    #usernameinput {
+        width: calc(100% - 20px);
+    }
+    #messageinput:focus {
+        outline: none;
+    }
+    .button {
+        display: inline-block;
+        padding: 8px;
+        border-style: solid;
+        border-width: 1px;
+        border-color: white;
+        border-radius: 30px;
+        user-select: none;
+        font-size: 12px;
+    }
+    .button:hover {
+        cursor: pointer;
+    }
+    #controlBox {
+        width: 30%;
+        height: 100%;
+        float: left;
+    }
+    #messageBox {
+        width: 70%;
+        height: 100%;
+        float: right;
+        overflow: hidden;
+    }
+    #send:after {
+        content: 'Send';
+    }
+    #refresh:after {
+        content: 'Refresh';
+    }
+    #debugframe:after {
+        content: 'Show Frame Count in Console';
+    }
+</style>
+<body>
+    {% block body %}{% endblock %}
+</body>
+
+<script>
+
+    var previousFrame = 0;
+    var currentFrame = 0;
+
+    var frameStatusDObject = document.getElementById('frameStatus');
+
+    function sync() {
+        syncFrames();
+        syncPage();
+    }
+
+    function syncPage() {
+        console.log("Current Frame: " + currentFrame + "\nPrevious Frame: " + previousFrame);
+        if(currentFrame == previousFrame) {
+            frameStatusDObject.innerHTML = "Up to date.";
+        } else {
+            frameStatusDObject.innerHTML = "Updating...";
+            $.get('/api/getmessages', function(data, status) {
+             buildMessages(data);
+            });
+        }
+        previousFrame = currentFrame;
+    }
+
+    function buildMessages(data) {
+
+        stringHTML = ""
+
+        for(i = 0; i < data.length; i++) {
+            stringHTML += "<p><b>" + data[data.length-1-i]['username'] + "</b>: " + data[data.length-1-i]['content'] + "</p>";
+        }
+        $("#messageBox").html(stringHTML);
+    }
+
+    function syncFrames() {
+        $.get('/api/frame', function(data, status) {
+            currentFrame = parseInt(data['current_frame']);
+        });
+    }
+
+    function sendMessage() {
+        message = $("#message").val();
+        var preJSON = {
+            "username": $("#usernameinput").val(),
+            "content": $("#messageinput").val()
+        };
+        $.ajax({
+            url: '/api/post',
+            type: 'POST',
+            data: JSON.stringify(preJSON),
+            contentType: 'application/JSON; charset=utf-8',
+            dataType: 'json',
+            success: function(data) {
+            }
+        });
+    }
+    $("#refresh").click(function() {
+        $.get('/api/getmessages', function(data, status) {
+            console.log(data);
+        });
+    });
+    $("#debugframe").click(function() {
+        $.get('/api/frame', function(data, status) {
+            console.log(data['current_frame']);
+        });
+    });
+    $("#send").click(function() {
+        sendMessage();
+    });
+    $(document).ready(function() {
+        $.get('/api/getmessages', function(data, status) {
+             buildMessages(data);
+        });
+        $("#messageinput").keydown(function(key) {
+            if(key.which == 13) {
+                sendMessage();
+                $("#messageinput").val("");
+            }
+        });
+    });
+
+    setInterval(sync, 200);
+</script>
+</html>
